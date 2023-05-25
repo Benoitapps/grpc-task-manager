@@ -1,8 +1,9 @@
 import { browser } from '$app/environment';
-import { username } from '$src/stores/user';
 import { get } from 'svelte/store';
-import { EventType, type UsageResponse } from '../stubs/task/v1beta/task';
 import { showInfoToast } from './notification';
+import { EventType } from '../stubs/task/v1beta/message';
+import type { UsingStreamResponse } from '../stubs/task/v1beta/request';
+import { page } from '$app/stores';
 
 export enum UsageEvent {
 	hover = 'hover'
@@ -12,7 +13,7 @@ export const sendUsage = (eventType: EventType, taskName: string) =>
 	fetch('/task/usage', {
 		method: 'post',
 		body: JSON.stringify({
-			username: get(username),
+			username: get(page).data.user.email,
 			taskName,
 			eventType
 		})
@@ -22,8 +23,8 @@ export const connectToUsageStream = () => {
 	const sse = new EventSource('/task/usage');
 	sse.onmessage = (msg) => {
 		try {
-			const data: UsageResponse = JSON.parse(msg.data);
-			if (browser && data.username !== get(username)) {
+			const data: UsingStreamResponse = JSON.parse(msg.data);
+			if (browser && data.username !== get(page).data.user.email) {
 				switch (data.eventType) {
 					case EventType.CLICK:
 						showInfoToast(`<strong>${data.username}</strong> is on the ${data.taskName} task.`);
@@ -32,10 +33,14 @@ export const connectToUsageStream = () => {
 						showInfoToast(`<strong>${data.username}</strong> is creating a task.`);
 						break;
 					case EventType.UPDATE:
-						showInfoToast(`<strong>${data.username}</strong> is updating the ${data.taskName} task.`);
+						showInfoToast(
+							`<strong>${data.username}</strong> is updating the ${data.taskName} task.`
+						);
 						break;
 					case EventType.DELETE:
-						showInfoToast(`<strong>${data.username}</strong> is deleting the ${data.taskName} task.`);
+						showInfoToast(
+							`<strong>${data.username}</strong> is deleting the ${data.taskName} task.`
+						);
 						break;
 				}
 			}

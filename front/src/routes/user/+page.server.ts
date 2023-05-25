@@ -1,25 +1,24 @@
-import { toJson, toPb } from '$lib/helper/userDto';
+import { toJson } from '$lib/helper/userDto';
+import { userClient } from '$src/lib/server/rpcClients';
 import { fail, type Actions } from '@sveltejs/kit';
 
 export const actions = {
-	update: async ({ locals, cookies, request }) => {
+	update: async ({ locals, request }) => {
 		try {
 			const formData = await request.formData();
 			const firstName = formData.get('firstName') as string;
 			const lastName = formData.get('lastName') as string;
 			const userId = formData.get('userId') as string;
 
-			const res = await locals.userClient.update(
+			const res = await userClient.update(
 				{
-					user: toPb({
-						lastName,
-						firstName,
-						id: userId
-					})
+					lastName,
+					firstName,
+					id: userId
 				},
 				{
 					meta: {
-						Authorization: `Bearer ${cookies.get('jwt')}`
+						Authorization: `Bearer ${locals.jwt}`
 					}
 				}
 			);
@@ -31,4 +30,3 @@ export const actions = {
 		}
 	}
 } satisfies Actions;
-

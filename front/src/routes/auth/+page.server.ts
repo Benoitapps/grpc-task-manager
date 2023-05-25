@@ -1,9 +1,10 @@
 import { LoginResponse_STATUS } from '$src/lib/stubs/auth/v1alpha/message';
 import { fail } from '@sveltejs/kit';
 import type { Actions } from '../$types';
+import { authClient, userClient } from '$src/lib/server/rpcClients';
 
 export const actions: Actions = {
-	login: async ({ request, locals, cookies }) => {
+	login: async ({ request, cookies }) => {
 		const data = await request.formData();
 		const email = data.get('email');
 		const password = data.get('password');
@@ -13,7 +14,7 @@ export const actions: Actions = {
 		}
 
 		try {
-			const { response } = await locals.authClient.login({
+			const { response } = await authClient.login({
 				email: email as string,
 				password: password as string,
 				ip: '10.10.10.10'
@@ -22,10 +23,12 @@ export const actions: Actions = {
 			switch (response.status) {
 				case LoginResponse_STATUS.OK: {
 					cookies.set('jwt', response.jwt, {
-						path: '/'
+						path: '/',
+						httpOnly: true
 					});
 					cookies.set('refreshToken', response.refreshToken, {
-						path: '/'
+						path: '/',
+						httpOnly: true
 					});
 					const buffer = Buffer.from(
 						JSON.stringify(response.user, (_, v) => (typeof v === 'bigint' ? v.toString() : v)),
@@ -33,7 +36,8 @@ export const actions: Actions = {
 					);
 					const base64 = buffer.toString('base64');
 					cookies.set('user', base64, {
-						path: '/'
+						path: '/',
+						httpOnly: true
 					});
 					return { success: true };
 				}
@@ -50,7 +54,7 @@ export const actions: Actions = {
 			return fail(400, { error: error?.message || 'something went wrong' });
 		}
 	},
-	register: async ({ request, locals }) => {
+	register: async ({ request }) => {
 		const data = await request.formData();
 		const email = data.get('email');
 		const firstName = data.get('firstName');
@@ -62,7 +66,7 @@ export const actions: Actions = {
 		}
 
 		try {
-			await locals.userClient.register({
+			await userClient.register({
 				email: email as string,
 				firstName: firstName as string,
 				lastName: lastName as string,

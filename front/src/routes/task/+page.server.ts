@@ -1,11 +1,13 @@
 import {
 	CreateTaskRequest,
 	UpdateTaskRequest,
-	DeleteTaskRequest,
-	FieldType
-} from '$lib/stubs/task/v1beta/task';
+	DeleteTaskRequest
+} from '$lib/stubs/task/v1beta/request';
 import { toPb } from '$lib/helper/taskDto';
 import { fail, type Actions } from '@sveltejs/kit';
+import { FieldType } from '$src/lib/stubs/task/v1beta/message';
+import {} from '@protobuf-ts/runtime';
+import { taskClients } from '$src/lib/server/rpcClients';
 
 export const actions: Actions = {
 	newTask: async ({ request, locals, cookies }) => {
@@ -17,18 +19,27 @@ export const actions: Actions = {
 			const [time, date] = dueDate.split(' ', 2);
 			const [hour, minute] = time.split(':', 2);
 			const [year, month, day] = date.split('-', 3);
-			const createTaskRequest = CreateTaskRequest.create({
-				task: toPb({ fields: [], name, dueDate: new Date(+year, +month - 1, +day, +hour, +minute) })
-			});
-			await locals.taskClients.crudClient.createTask(createTaskRequest, {
-				meta: {
-					Authorization: `Bearer ${cookies.get('jwt')}`
+			await taskClients.crudClient.createTask(
+				{
+					task: toPb({
+						fields: [],
+						name,
+						dueDate: new Date(+year, +month - 1, +day, +hour, +minute)
+					})
+				},
+				{
+					meta: {
+						Authorization: `Bearer ${locals.jwt}`
+					}
 				}
-			});
+			);
 
 			return { success: 200 };
 		} catch (error: any) {
 			console.error(error);
+			if (error?.code === 'PERMISSION_DENIED') {
+				throw new Error('Task name already exists');
+			}
 			return fail(400, { error: error?.message || 'something went wront' });
 		}
 	},
@@ -40,7 +51,7 @@ export const actions: Actions = {
 		const fieldValue = data.get('fieldValue') as string;
 
 		try {
-			await locals.taskClients.fieldClient.addField({
+			await taskClients.fieldClient.addField({
 				fieldName,
 				fieldValue,
 				fieldType: FieldType.STRING,
@@ -59,7 +70,7 @@ export const actions: Actions = {
 		const fieldName = data.get('fieldName') as string;
 
 		try {
-			await locals.taskClients.fieldClient.removeField({
+			await taskClients.fieldClient.removeField({
 				fieldName,
 				taskName
 			});
@@ -79,7 +90,7 @@ export const actions: Actions = {
 			const updateTaskRequest = UpdateTaskRequest.create({
 				task: toPb(JSON.parse(stringTask))
 			});
-			await locals.taskClients.crudClient.updateTask(updateTaskRequest);
+			await taskClients.crudClient.updateTask(updateTaskRequest);
 
 			return { success: true };
 		} catch (error: any) {
@@ -96,7 +107,7 @@ export const actions: Actions = {
 			const deleteTaskRequest = DeleteTaskRequest.create({
 				name
 			});
-			await locals.taskClients.crudClient.deleteTask(deleteTaskRequest);
+			await taskClients.crudClient.deleteTask(deleteTaskRequest);
 
 			return { success: true };
 		} catch (error: any) {

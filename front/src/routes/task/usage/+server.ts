@@ -1,14 +1,19 @@
 import { sse } from '$src/lib/helper/sse';
-import { UsageRequest } from '$src/lib/stubs/task/v1beta/task';
+import { taskClients } from '$src/lib/server/rpcClients';
+import { UsingRequest, UsingStreamRequest } from '$src/lib/stubs/task/v1beta/request';
 import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = ({ locals }) => {
 	try {
-		const stream = locals.taskClients.usageClient.usingStream(UsageRequest.create());
+		const stream = taskClients.usageClient.usingStream(UsingStreamRequest.create());
 
-		return sse<any>(async ({ write }) => {
-			for await (const msg of stream.responses) {
-				if (msg.username) write({ data: msg });
+		return sse<any>(async ({ write, close }) => {
+			try {
+				for await (const msg of stream.responses) {
+					if (msg.username) write({ data: msg });
+				}
+			} catch (error) {
+				close();
 			}
 		});
 	} catch (error) {
@@ -21,13 +26,13 @@ export const GET: RequestHandler = ({ locals }) => {
 export const POST: RequestHandler = async ({ locals, request }) => {
 	try {
 		const data = await request.json();
-		const usageRequest = UsageRequest.create({
+		const usageRequest = UsingRequest.create({
 			username: data.username,
 			taskName: data.taskName,
 			eventType: data.eventType
 		});
 
-		await locals.taskClients.usageClient.using(usageRequest);
+		await taskClients.usageClient.using(usageRequest);
 
 		return new Response();
 	} catch (error: any) {
